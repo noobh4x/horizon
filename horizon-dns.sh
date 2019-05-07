@@ -111,18 +111,18 @@ else
     SAVE_PATH=$OUTPUT_PATH
     if [[ -d $SAVE_PATH ]]; then
         SAVE_PATH=$(realpath $SAVE_PATH)
-        echo -n "[?] The output directory already exists. Do you wish to delete it? [Y/n]: "
+        echo -n "[?] The output directory already exists. Do you wish to clear it? [Y/n]: "
         read choice
         if [[ -z $choice ]]; then choice='yes'; fi
         case $choice in
-            y*|Y*) rm -Rf $SAVE_PATH ;;
+            y*|Y*) rm -Rf $SAVE_PATH; mkdir -p $SAVE_PATH ;;
             n*|N*) ;;
             *) echo '[*] Invalid choice. Aborting...'; exit ;;
         esac
     else
+        mkdir -p $SAVE_PATH
         SAVE_PATH=$(realpath $SAVE_PATH)
     fi
-    mkdir -p $SAVE_PATH
 fi
 
 cd $SAVE_PATH
@@ -162,7 +162,7 @@ echo "  Output dir : $SAVE_PATH"
 echo "  Resolvers  : $RESOLVERS"
 echo "  Wordlist   : $WORDLIST"
 echo
-
+exit
 WILDCARD=$(dig @1.1.1.1 A,CNAME {foohica7291673,b0r4m4dr4m41928,1sh0uldn0t3x1st}.$DOMAIN +short | wc -l)
 if [[ "$WILDCARD" -gt "1" ]];
 then
