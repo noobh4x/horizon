@@ -5,8 +5,8 @@
 
 ### Todo
 
-Currently I'm working on `horizon-web` and `horizon-code`. These will be made
-available once they reach a usable state.
+* Create `horizon-code`
+* Improvements to the web recon workflow
 
 ## horizon-dns
 
