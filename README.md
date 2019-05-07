@@ -1,4 +1,4 @@
-# Horizon - Automate Reconnaissance
+# Horizon - Automated Reconnaissance
 
 * [horizon-dns](#horizon-dns)
 * [horizon-web](#horizon-web)
