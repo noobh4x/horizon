@@ -14,10 +14,10 @@ Subdomain enumeration using various tools and online services.
 * jq
 * curl
 * dig
-* massdns
-* takeover
-* amass
-* knockpy
+* [massdns](https://github.com/blechschmidt/massdns)
+* [takeover](https://github.com/m4ll0k/takeover)
+* [amass](https://github.com/caffix/amass)
+* [knockpy](https://github.com/guelfoweb/knock)
 
 ### What does it do?
 
