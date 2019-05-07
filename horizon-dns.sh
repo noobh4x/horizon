@@ -106,6 +106,7 @@ fi
 
 if [[ -z $OUTPUT_PATH ]]; then
     SAVE_PATH=$BASE_PATH/horizon_output
+    mkdir $SAVE_PATH
 else
     SAVE_PATH=$OUTPUT_PATH
     if [[ -d $SAVE_PATH ]]; then
@@ -125,6 +126,7 @@ else
 fi
 
 cd $SAVE_PATH
+
 
 if [[ -z $WORDLIST ]]; then
     WORDLIST=$SELF_PATH"/lists/dns-wordlist.txt"
