@@ -1,5 +1,8 @@
 # Horizon - Automate Reconnaissance
 
+* [horizon-dns](#horizon-dns)
+* [horizon-web](#horizon-web)
+
 ### Todo
 
 Currently I'm working on `horizon-web` and `horizon-code`. These will be made
@@ -8,6 +11,17 @@ available once they reach a usable state.
 ## horizon-dns
 
 Subdomain enumeration using various tools and online services.
+
+```
+  Required:
+    -d <url>        URL
+
+  Optional:
+    -h              This help menu
+    -o <path>       Output directory where files will be stored
+    -r <resolvers>  List of resolvers
+    -w <wordlist>   Wordlist to be used when brute forcing subdomains
+```
 
 ### Dependencies
 
@@ -50,3 +64,55 @@ The way this works is that the script writes all detected hosts to
 `hosts-all.txt`. After the file `hosts-merged.txt` has been created for the
 current scan, it will compare the hosts in this file against the `hosts-all.txt`
 file detecting new findings.
+
+## horizon-web
+
+Web application reconnaissance and content discovery
+
+```
+  Required:
+    -u <url>            URL
+
+  Optional:
+    -d <seconds>        Time in seconds, to way between requests
+                        Used by: dirsearch
+
+    -e <extensions>     Extensions for brute forcing files and directories separated by comma
+                        Used by: dirsearch
+
+    -h                  This help menu
+
+    -o <directory>      Output directory
+
+    -r <regex>          Regular expression pattern to search for links
+                        Used by: linkfinder
+
+    -t <threads>        Number of threads to use (default: 10)
+                        Used by: dirsearch
+
+    -w <wordlist>       Wordlist for file and directory brute forcing
+                        Used by: dirsearch
+
+    -x <codes>          Comma separated list of response codes to ignore (default: 500,503)
+                        Used by: dirsearch
+```
+
+### Dependencies
+
+* [wafw00f](https://github.com/EnableSecurity/wafw00f)
+* [wappalyzer](https://www.npmjs.com/package/wappalyzer)
+* [dirsearch](https://github.com/maurosoria/dirsearch)
+* [linkfinder](https://github.com/GerbenJavado/LinkFinder)
+
+### What does it do?
+
+Currently this script only perform some simple web application reconnaissance
+and content discovery. It uses
+
+* `wafw00f` to detect web application firewalls
+* `wappalyzer` to determine which technologies that are used
+* `dirsearch` to brute force files and directories
+* `linkfinder` to detect endpoints in javascript files
+
+It will look for and download `robots.txt` if available, and search wayback
+machine to find archived urls for the given domain.
