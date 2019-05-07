@@ -162,7 +162,7 @@ echo "  Output dir : $SAVE_PATH"
 echo "  Resolvers  : $RESOLVERS"
 echo "  Wordlist   : $WORDLIST"
 echo
-exit
+
 WILDCARD=$(dig @1.1.1.1 A,CNAME {foohica7291673,b0r4m4dr4m41928,1sh0uldn0t3x1st}.$DOMAIN +short | wc -l)
 if [[ "$WILDCARD" -gt "1" ]];
 then
