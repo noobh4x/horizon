@@ -1,3 +1,2 @@
 config/*.conf
-horizon-web.sh
 horizon-code.sh
