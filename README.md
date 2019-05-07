@@ -14,13 +14,18 @@ Subdomain enumeration using various tools and online services.
 
 ```
   Required:
-    -d <url>        URL
+    -d <domain>     Domain
 
   Optional:
     -h              This help menu
+
     -o <path>       Output directory where files will be stored
+
     -r <resolvers>  List of resolvers
+                    Used by: massdns
+
     -w <wordlist>   Wordlist to be used when brute forcing subdomains
+                    Used by: amass, knockpy
 ```
 
 ### Dependencies
