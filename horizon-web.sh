@@ -46,7 +46,7 @@ do
         d) DELAY=$OPTARG ;;
         e) EXTENSIONS=$OPTARG ;;
         h) DISPLAY_HELP=1 ;;
-        o) OUT_PATH=$OPTARG ;;
+        o) SAVE_PATH=$OPTARG ;;
         r) REGEX=$OPTARG ;;
         t) THREADS=$OPTARG ;;
         u) DOMAIN=$OPTARG ;;
@@ -107,22 +107,22 @@ if [[ -z $EXTENSIONS ]]; then
 fi
 
 # Set default output path if one was not provided
-if [[ -z $OUT_PATH ]]; then
-    OUT_PATH=$BASE_PATH/horizon_web
+if [[ -z $SAVE_PATH ]]; then
+    SAVE_PATH=$BASE_PATH/horizon_web
 fi
 
 # If path does not exist create one, otherwise ask if the user wants to delete
 # it first. Default choice: no
-if [[ ! -d $OUT_PATH ]]; then
-    mkdir -p $OUT_PATH
+if [[ ! -d $SAVE_PATH ]]; then
+    mkdir -p $SAVE_PATH
 else
     echo -n '[?] Output directory already exists. Do you wish to delete it? [y/N] '
     read choice
     if [[ -z $choice ]]; then choice='no'; fi
     case $choice in
         y*|Y*)
-            rm -Rf $OUT_PATH
-            mkdir -p $OUT_PATH
+            rm -Rf $SAVE_PATH
+            mkdir -p $SAVE_PATH
             ;;
         n*|N*) ;;
         *)
@@ -131,8 +131,8 @@ else
             ;;
     esac
 fi
-OUT_PATH=`realpath $OUT_PATH`
-cd $OUT_PATH
+SAVE_PATH=`realpath $SAVE_PATH`
+cd $SAVE_PATH
 
 # Set default regular expression for LinkFinder if one was not provided
 # Used by: LinkFinder
@@ -172,7 +172,7 @@ echo "[*] Process started @ $TIME_START"
 echo "  Target        : $DOMAIN"
 echo "  Exclude codes : $EXCLUDE_CODES"
 echo "  Extensions    : $EXTENSIONS"
-echo "  Output path   : $OUT_PATH"
+echo "  Output path   : $SAVE_PATH"
 echo "  Threads       : $THREADS"
 echo "  RegEx pattern : $REGEX"
 echo "  Wordlist      : $WORDLIST (words: $COUNT_WORDLIST)"
