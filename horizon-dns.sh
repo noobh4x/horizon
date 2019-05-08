@@ -204,6 +204,7 @@ if [[ "$WILDCARD" -lt "2" ]]; then
         | sort -u \
         > hosts-knockpy.tmp
     COUNT_KNOCKPY=`cat hosts-knockpy.tmp | wc -l`
+    rm -f $KNOCKFILE
 fi
 
 COUNT_CLOUDFLARE=0
