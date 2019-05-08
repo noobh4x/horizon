@@ -347,7 +347,11 @@ fi
 echo
 echo "[*] Running massdns"
 massdns -r $RESOLVERS -q -t A -o S -w massdns.out hosts-merged.txt
-cat massdns.out | awk '{print $1}' | sed 's/\.$//' | sort -u > hosts-online.txt
+cat massdns.out \
+    | awk '{print $1}' \
+    | sed 's/\.$//' \
+    | sort -u \
+    > hosts-online.txt
 COUNT_MASSDNS=`cat hosts-online.txt | wc -l`
 
 echo "[*] Testing for possible subdomain takeover"
