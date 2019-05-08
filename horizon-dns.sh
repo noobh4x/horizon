@@ -113,7 +113,7 @@ if [[ -n $IGNORE_HOSTS && ! -f $IGNORE_HOSTS ]]; then
 fi
 
 if [[ -z $OUTPUT_PATH ]]; then
-    SAVE_PATH=$BASE_PATH/horizon_output
+    SAVE_PATH=$BASE_PATH/horizon_dns
     mkdir $SAVE_PATH
 else
     SAVE_PATH=$OUTPUT_PATH
