@@ -68,10 +68,11 @@ else
 fi
 
 # Handling arguments
-while getopts ":d:o:r:w:h" opt; do
+while getopts ":d:i:o:r:w:h" opt; do
     case $opt in
         d) DOMAIN=$OPTARG ;;
         h) SHOW_HELP=1 ;;
+        i) IGNORE_HOSTS=$OPTARG ;;
         o) OUTPUT_PATH=$OPTARG ;;
         r) RESOLVERS=$OPTARG ;;
         w) WORDLIST=$OPTARG ;;
@@ -87,6 +88,8 @@ then
   Optional:
     -h              This help menu
 
+    -i <file>       Line separated list of hosts to ignore
+
     -o <path>       Output directory where files will be stored
 
     -r <resolvers>  List of resolvers
@@ -101,6 +104,11 @@ fi
 # Domain is required
 if [[ -z $DOMAIN ]]; then
     echo "Usage: $0 domain"
+    exit
+fi
+
+if [[ -n $IGNORE_HOSTS && ! -f $IGNORE_HOSTS ]]; then
+    echo "[!!] Error: Unable to load file '$IGNORE_HOSTS'. File does not exist"
     exit
 fi
 
@@ -312,6 +320,11 @@ cat hosts-*.tmp \
     | sed '/^*./d' \
     | sort -u \
     > hosts-merged.txt
+
+if [[ -n $IGNORE_HOSTS ]]; then
+    grep -vf $IGNORE_HOSTS hosts-merged.txt > hosts-merged.tmp
+    mv hosts-merged.{tmp,txt}
+fi
 COUNT_UNIQUE=`cat hosts-merged.txt | wc -l`
 
 if [[ -f hosts-all.txt ]]; then
