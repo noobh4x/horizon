@@ -91,6 +91,7 @@ fi
 # Domain is a required option. Throw an error if one was not provided
 if [[ -z $DOMAIN ]]; then
     echo '[!!] Error: Domain cannot be empty. Use -h for more info'
+    exit
 fi
 
 # Set default delay in seconds if none was provided
