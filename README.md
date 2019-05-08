@@ -19,6 +19,8 @@ Subdomain enumeration using various tools and online services.
   Optional:
     -h              This help menu
 
+    -i <file>       Line separated list of hosts to ignore
+
     -o <path>       Output directory where files will be stored
 
     -r <resolvers>  List of resolvers
@@ -70,6 +72,29 @@ The way this works is that the script writes all detected hosts to
 current scan, it will compare the hosts in this file against the `hosts-all.txt`
 file detecting new findings.
 
+### Usage Examples
+
+#### Basic usage
+
+```
+$ horizon-dns -d example.com
+```
+
+#### Staying in scope
+
+```
+$ cat hosts-ignore.txt
+foo\.example\.com
+baz\.example\.com
+$ horizon-dns -d example.com -i hosts-ignore.txt
+```
+
+#### Writing output to current directory
+
+```
+$ horizon-dns -d example.com -o .
+```
+
 ## horizon-web
 
 Web application reconnaissance and content discovery
@@ -104,6 +129,7 @@ Web application reconnaissance and content discovery
 
 ### Dependencies
 
+* jq
 * [wafw00f](https://github.com/EnableSecurity/wafw00f)
 * [wappalyzer](https://www.npmjs.com/package/wappalyzer)
 * [dirsearch](https://github.com/maurosoria/dirsearch)
@@ -121,3 +147,17 @@ and content discovery. It uses
 
 It will look for and download `robots.txt` if available, and search wayback
 machine to find archived urls for the given domain.
+
+### Usage Examples
+
+#### Basic usage
+
+```
+$ horizon-web -u https://example.com
+```
+
+#### Write output to current directory
+
+```
+$ horizon-web -u https://example.com -o .
+```
