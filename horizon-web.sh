@@ -177,7 +177,7 @@ echo "  Threads       : $THREADS"
 echo "  RegEx pattern : $REGEX"
 echo "  Wordlist      : $WORDLIST (words: $COUNT_WORDLIST)"
 echo "  Delay         : $DELAY"
-exit
+
 echo
 echo "[*] Checking if the website is behind a WAF"
 wafw00f --findall $DOMAIN \
@@ -204,7 +204,7 @@ fi
 
 echo
 echo "[*] Looking for files and directories"
-echo dirsearch -b -u $DOMAIN -x $EXCLUDE_CODES -t $THREADS -s $DELAY -e $EXTENSIONS --plain-text-report dirsearch.out
+dirsearch -b -u $DOMAIN -x $EXCLUDE_CODES -t $THREADS -s $DELAY -e $EXTENSIONS --plain-text-report dirsearch.out
 
 DOMAIN_HOST=`echo $DOMAIN | cut -d'/' -f3`
 echo
