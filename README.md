@@ -161,3 +161,10 @@ $ horizon-web -u https://example.com
 ```
 $ horizon-web -u https://example.com -o .
 ```
+
+## Special Thanks
+
+These are people that contributed to the project in some way. Testing, suggestions,
+patches, etc
+
+* zewen / seewhen
