@@ -101,12 +101,13 @@ then
     exit
 fi
 
-# Domain is required
+# Domain is a required. Throw an error if one was not provided
 if [[ -z $DOMAIN ]]; then
     echo '[!!] Error: Domain cannot be empty. Use -h for more info'
     exit
 fi
 
+# Verify that the file with hosts to ignore does exist
 if [[ -n $IGNORE_HOSTS && ! -f $IGNORE_HOSTS ]]; then
     echo "[!!] Error: Unable to load file '$IGNORE_HOSTS'. File does not exist"
     exit
@@ -132,27 +133,29 @@ else
         SAVE_PATH=$(realpath $SAVE_PATH)
     fi
 fi
-
 cd $SAVE_PATH
 
-
+# Set default word list if one was not provided
 if [[ -z $WORDLIST ]]; then
     WORDLIST=$SELF_PATH"/lists/dns-wordlist.txt"
 else
     WORDLIST=$(realpath $WORDLIST)
 fi
 
+# Throw an error if the file does not exist
 if [[ ! -f $WORDLIST ]]; then
     echo "[!!] Error: Unable to load wordlist. File does not exist. Aborting..."
     exit
 fi
 
+# Set default resolvers list if one was not provided
 if [[ -z $RESOLVERS ]]; then
     RESOLVERS=$SELF_PATH"/lists/dns-resolvers.txt"
 else
     RESOLVERS=$(realpath $RESOLVERS)
 fi
 
+# Throw an error if the file does not exist
 if [[ ! -f $RESOLVERS ]]; then
     echo "[!!] Error: Unable to load resolvers list. File does not exist. Aborting..."
     exit
