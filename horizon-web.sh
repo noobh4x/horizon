@@ -192,14 +192,14 @@ wappalyzer $DOMAIN \
 
 echo
 echo "[*] Checking for existence of robots.txt"
+rm -f robots.txt # Removing any old robots.txt file to avoid confusion
 wget -q -O robots.txt $DOMAIN/robots.txt
-if [[ -f "robots.txt" ]];
-then
+if [[ "`cat robots.txt | wc -l`" -gt "0" ]]; then
     cat robots.txt | sed 's/^/  /'
     echo
 else
     rm -f robots.txt
-    echo "  [-] No robots.txt file present"
+    echo "  No robots.txt file present"
 fi
 
 echo
