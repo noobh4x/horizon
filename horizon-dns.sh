@@ -103,7 +103,7 @@ fi
 
 # Domain is required
 if [[ -z $DOMAIN ]]; then
-    echo "Usage: $0 domain"
+    echo '[!!] Error: Domain cannot be empty. Use -h for more info'
     exit
 fi
 
