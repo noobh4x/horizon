@@ -88,35 +88,65 @@ then
     exit
 fi
 
+# Domain is a required option. Throw an error if one was not provided
 if [[ -z $DOMAIN ]]; then
     echo '[!!] Error: Domain cannot be empty. Use -h for more info'
 fi
 
+# Set default delay in seconds if none was provided
+# Used by: dirsearch
 if [[ -z $DELAY ]]; then
     DELAY=0
 fi
 
+# Set default extension list if none was provided.
+# Used by: dirsearch
 if [[ -z $EXTENSIONS ]]; then
     EXTENSIONS=,
 fi
 
-if [[ -n $OUT_PATH ]]; then
-    if [[ ! -d $OUT_PATH ]]; then
-        mkdir -p $OUT_PATH
-    fi
-    OUT_PATH=`realpath $OUT_PATH`
-else
-    OUT_PATH=$BASE_PATH
+# Set default output path if one was not provided
+if [[ -z $OUT_PATH ]]; then
+    OUT_PATH=$BASE_PATH/horizon_web
 fi
 
+# If path does not exist create one, otherwise ask if the user wants to delete
+# it first. Default choice: no
+if [[ ! -d $OUT_PATH ]]; then
+    mkdir -p $OUT_PATH
+else
+    echo -n '[?] Output directory already exists. Do you wish to delete it? [y/N] '
+    read choice
+    if [[ -z $choice ]]; then choice='no'; fi
+    case $choice in
+        y*|Y*)
+            rm -Rf $OUT_PATH
+            mkdir -p $OUT_PATH
+            ;;
+        n*|N*) ;;
+        *)
+            echo '[!!] Error: Invalid choice. Aborting...'
+            exit
+            ;;
+    esac
+fi
+OUT_PATH=`realpath $OUT_PATH`
+cd $OUT_PATH
+
+# Set default regular expression for LinkFinder if one was not provided
+# Used by: LinkFinder
 if [[ -z $REGEX ]]; then
     REGEX=.
 fi
 
+# Set default threads count if one was not provided
+# Used by: dirsearch
 if [[ -z $THREADS ]]; then
     THREADS=10
 fi
 
+# Set default wordlist if one was not provided
+# Used by: dirsearch
 if [[ -z $WORDLIST ]]; then
     WORDLIST=$SELF_PATH/lists/web-wordlist.txt
 else
@@ -125,14 +155,14 @@ else
         exit
     fi
 fi
-
 COUNT_WORDLIST=`cat $WORDLIST | wc -l`
 
+# Set default exclude codes if none was provided
+# Used by: dirsearch
 if [[ -z $EXCLUDE_CODES ]]; then
     EXCLUDE_CODES=500,503
 fi
 
-cd $OUT_PATH
 
 TIME_START=`date +"%Y-%m-%d %H:%M:%S"`
 TIMER_START=`date +"%s"`
@@ -146,7 +176,7 @@ echo "  Threads       : $THREADS"
 echo "  RegEx pattern : $REGEX"
 echo "  Wordlist      : $WORDLIST (words: $COUNT_WORDLIST)"
 echo "  Delay         : $DELAY"
-
+exit
 echo
 echo "[*] Checking if the website is behind a WAF"
 wafw00f --findall $DOMAIN \
