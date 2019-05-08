@@ -182,7 +182,7 @@ echo
 echo "[*] Checking if the website is behind a WAF"
 wafw00f --findall $DOMAIN \
     | grep behind \
-    | sed -E 's/The site .+ [is|seems to behind]+//;s/WAF\.$//;s/^/  /'
+    | sed -E 's/The site .+ behind a?\s?//;s/WAF\.$//;s/^/  /'
 
 echo
 echo "[*] Checking technologies via wappalyzer"
