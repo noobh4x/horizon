@@ -73,7 +73,7 @@ while getopts ":d:i:o:r:w:h" opt; do
         d) DOMAIN=$OPTARG ;;
         h) SHOW_HELP=1 ;;
         i) IGNORE_HOSTS=$OPTARG ;;
-        o) OUTPUT_PATH=$OPTARG ;;
+        o) SAVE_PATH=$OPTARG ;;
         r) RESOLVERS=$OPTARG ;;
         w) WORDLIST=$OPTARG ;;
     esac
@@ -113,26 +113,32 @@ if [[ -n $IGNORE_HOSTS && ! -f $IGNORE_HOSTS ]]; then
     exit
 fi
 
-if [[ -z $OUTPUT_PATH ]]; then
+# Set default output path if one was not provided
+if [[ -z $SAVE_PATH ]]; then
     SAVE_PATH=$BASE_PATH/horizon_dns
-    mkdir $SAVE_PATH
-else
-    SAVE_PATH=$OUTPUT_PATH
-    if [[ -d $SAVE_PATH ]]; then
-        SAVE_PATH=$(realpath $SAVE_PATH)
-        echo -n "[?] The output directory already exists. Do you wish to clear it? [Y/n]: "
-        read choice
-        if [[ -z $choice ]]; then choice='yes'; fi
-        case $choice in
-            y*|Y*) rm -Rf $SAVE_PATH; mkdir -p $SAVE_PATH ;;
-            n*|N*) ;;
-            *) echo '[*] Invalid choice. Aborting...'; exit ;;
-        esac
-    else
-        mkdir -p $SAVE_PATH
-        SAVE_PATH=$(realpath $SAVE_PATH)
-    fi
 fi
+
+# Create the path if it does not exist. Otherwise ask if the user wants to
+# delete it. Default choice: no
+if [[ ! -d $SAVE_PATH ]]; then
+    mkdir -p $SAVE_PATH
+else
+    echo -n "[?] Output directory already exists. Do you wish to delete it? [y/N]: "
+    read choice
+    if [[ -z $choice ]]; then choice='no'; fi
+    case $choice in
+        y*|Y*)
+            rm -Rf $SAVE_PATH
+            mkdir -p $SAVE_PATH
+            ;;
+        n*|N*) ;;
+        *)
+            echo '[*] Error: Invalid choice. Aborting...'
+            exit
+            ;;
+    esac
+fi
+SAVE_PATH=`realpath $SAVE_PATH`
 cd $SAVE_PATH
 
 # Set default word list if one was not provided
