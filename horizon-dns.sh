@@ -320,11 +320,6 @@ cat hosts-*.tmp \
     | sed '/^*./d' \
     | sort -u \
     > hosts-merged.txt
-
-if [[ -n $IGNORE_HOSTS ]]; then
-    grep -vf $IGNORE_HOSTS hosts-merged.txt > hosts-merged.tmp
-    mv hosts-merged.{tmp,txt}
-fi
 COUNT_UNIQUE=`cat hosts-merged.txt | wc -l`
 
 if [[ -f hosts-all.txt ]]; then
@@ -341,6 +336,12 @@ if [[ -f hosts-all.txt ]]; then
 else
     cp hosts-{merged,all}.txt
     COUNT_NEW=`cat hosts-all.txt | wc -l`
+fi
+
+if [[ -n $IGNORE_HOSTS ]]; then
+    echo '[*] Removing out of scope hosts'
+    grep -vf $IGNORE_HOSTS hosts-merged.txt > hosts-merged.tmp
+    mv hosts-merged.{tmp,txt}
 fi
 
 echo
