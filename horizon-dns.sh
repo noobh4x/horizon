@@ -68,11 +68,12 @@ else
 fi
 
 # Handling arguments
-while getopts ":d:i:o:r:w:h" opt; do
+while getopts ":d:i:k:o:r:w:h" opt; do
     case $opt in
         d) DOMAIN=$OPTARG ;;
         h) SHOW_HELP=1 ;;
         i) IGNORE_HOSTS=$OPTARG ;;
+        k) KEEP_HOSTS=$OPTARG ;;
         o) SAVE_PATH=$OPTARG ;;
         r) RESOLVERS=$OPTARG ;;
         w) WORDLIST=$OPTARG ;;
@@ -89,6 +90,8 @@ then
     -h              This help menu
 
     -i <file>       Line separated list of hosts to ignore
+
+    -k <file>       Line separated list of hosts to keep
 
     -o <path>       Output directory where files will be stored
 
@@ -111,6 +114,15 @@ fi
 if [[ -n $IGNORE_HOSTS && ! -f $IGNORE_HOSTS ]]; then
     echo "[!!] Error: Unable to load file '$IGNORE_HOSTS'. File does not exist"
     exit
+else
+    IGNORE_HOSTS=$(realpath $IGNORE_HOSTS)
+fi
+
+if [[ -n $KEEP_HOSTS && ! -f $KEEP_HOSTS ]]; then
+    echo "[!!] Error: Unable to load file '$KEEP_HOSTS'. File does not exist"
+    exit
+else
+    KEEP_HOSTS=$(realpath $KEEP_HOSTS)
 fi
 
 # Set default output path if one was not provided
@@ -215,7 +227,7 @@ if [[ "$WILDCARD" -lt "2" ]]; then
     knockpy -j -w $WORDLIST $DOMAIN
     KNOCKFILE=`find $BASE_PATH -name $KNOCKFILES -type f`
     cat $KNOCKFILE \
-        | jq '.found.subdomain[]' \
+        | jq '.found.subdomain[]' 2>/dev/null \
         | sed 's/"//g' \
         | sed 's/*\.//' \
         | sort -u \
@@ -258,7 +270,7 @@ if [[ -n $CF_API_KEY && -n $CF_API_EMAIL && -n $CF_USER_ID ]]; then
             -H "Content-Type: application/json" \
             > cloudflare-dns.tmp
         cat cloudflare-dns.tmp \
-            | python -m json.tool \
+            | jq '.' \
             | grep '"name":' \
             | awk '{print $2}' \
             | sed 's/"//g' \
@@ -279,7 +291,7 @@ fi
 echo
 echo "[*] Searching Cert Spotter"
 curl -s https://certspotter.com/api/v0/certs?domain=$DOMAIN \
-    | jq '.[].dns_names[]' \
+    | jq '.[].dns_names[]' 2>/dev/null \
     | sed 's/\"//g' \
     | sed 's/\*\.//g' \
     | sort -u \
@@ -288,7 +300,7 @@ COUNT_CERTSPOTTER=`cat hosts-certspotter.tmp | wc -l`
 
 echo "[*] Searching crt.sh"
 curl -s "https://crt.sh/?q=%.$DOMAIN&output=json" \
-    | jq '.[].name_value' \
+    | jq '.[].name_value' 2>/dev/null \
     | sed 's/\"//g' \
     | sed 's/\*\.//g' \
     | sort -u \
@@ -297,7 +309,7 @@ COUNT_CRTSH=`cat hosts-crtsh.tmp | wc -l`
 
 echo '[*] Searching Buffer Over'
 curl -s "https://dns.bufferover.run/dns?q=.$DOMAIN" \
-    | jq '.FDNS_A[]' \
+    | jq '.FDNS_A[]' 2>/dev/null \
     | sed 's/"//g' \
     | cut -d',' -f2 \
     | sort -u \
@@ -306,7 +318,7 @@ COUNT_BUFFEROVER=`cat hosts-bufferover.tmp | wc -l`
 
 echo '[*] Searching Threat Crowd'
 curl -s "https://www.threatcrowd.org/searchApi/v2/domain/report/?domain=$DOMAIN" \
-    | jq '.subdomains[]' \
+    | jq '.subdomains[]' 2>/dev/null \
     | sed 's/"//g' \
     | sort -u \
     > hosts-threatcrowd.tmp
@@ -316,7 +328,7 @@ if [[ -n $VT_API_KEY ]];
 then
     echo "[*] Searching Virus Total"
     curl -s "https://www.virustotal.com/vtapi/v2/domain/report?apikey=$VT_API_KEY&domain=$DOMAIN" \
-        | jq '.subdomains[]' \
+        | jq '.subdomains[]' 2>/dev/null \
         | sed 's/"//g' \
         | sed 's/*\.//' \
         | sort -u \
@@ -350,6 +362,12 @@ fi
 if [[ -n $IGNORE_HOSTS ]]; then
     echo '[*] Removing out of scope hosts'
     grep -vf $IGNORE_HOSTS hosts-merged.txt > hosts-merged.tmp
+    mv hosts-merged.{tmp,txt}
+fi
+
+if [[ -n $KEEP_HOSTS ]]; then
+    echo '[*] Extracting hosts to keep'
+    grep -f $KEEP_HOSTS hosts-merged.txt > hosts-merged.tmp
     mv hosts-merged.{tmp,txt}
 fi
 
