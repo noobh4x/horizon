@@ -387,7 +387,7 @@ cat massdns.out \
 COUNT_MASSDNS=`cat hosts-online.txt | wc -l`
 
 echo "[*] Testing for possible subdomain takeover"
-takeover -l hosts-online.txt --set-output takeover.out
+takeover -l hosts-online.txt --set-output hosts-takeover.txt
 
 TIME_END=`date +"%Y-%m-%d %H:%M:%S"`
 TIMER_END=`date +"%s"`
