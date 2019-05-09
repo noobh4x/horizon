@@ -1,13 +1,17 @@
 # Horizon - Automated Reconnaissance
 
+* [horizon-code](#horizon-code) (Work in Progress)
 * [horizon-dns](#horizon-dns)
 * [horizon-web](#horizon-web)
 
 ### Todo
 
-* Create `horizon-code`
-* Improvements to the web recon workflow
-
+* **horizon-code**
+  * Create first stable
+* **horizon-dns**
+  * Add `-c` option to define custom config file
+* **horizon-web**
+  * Improvements to the workflow
 ## horizon-dns
 
 Subdomain enumeration using various tools and online services.
@@ -161,6 +165,10 @@ $ horizon-web -u https://example.com
 ```
 $ horizon-web -u https://example.com -o .
 ```
+
+## horizon-code
+
+The idea for horizon-code is to perform some general checks on static code. This will include looking for things like sensitive information disclosure, use of insecure functions, etc.
 
 ## Special Thanks
 
