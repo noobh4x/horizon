@@ -12,6 +12,18 @@
   * Add `-c` option to define custom config file
 * **horizon-web**
   * Improvements to the workflow
+
+## Installation
+
+> Check the tool section to see its dependencies
+
+```
+$ git clone https://github.com/noobh4x/horizon.git
+$ cd horizon
+$ sudo ln -s `pwd`/horizon-dns.sh /usr/local/bin/horizon-dns
+$ sudo ln -s `pwd`/horizon-web.sh /usr/local/bin/horizon-web
+```
+
 ## horizon-dns
 
 Subdomain enumeration using various tools and online services.
