@@ -111,18 +111,23 @@ if [[ -z $DOMAIN ]]; then
 fi
 
 # Verify that the file with hosts to ignore does exist
-if [[ -n $IGNORE_HOSTS && ! -f $IGNORE_HOSTS ]]; then
-    echo "[!!] Error: Unable to load file '$IGNORE_HOSTS'. File does not exist"
-    exit
-else
-    IGNORE_HOSTS=$(realpath $IGNORE_HOSTS)
+if [[ -n $IGNORE_HOSTS ]]; then
+    if [[ ! -f $IGNORE_HOSTS ]]; then
+        echo "[!!] Error: Unable to load file '$IGNORE_HOSTS'. File does not exist"
+        exit
+    else
+        IGNORE_HOSTS=$(realpath $IGNORE_HOSTS)
+    fi
 fi
 
-if [[ -n $KEEP_HOSTS && ! -f $KEEP_HOSTS ]]; then
-    echo "[!!] Error: Unable to load file '$KEEP_HOSTS'. File does not exist"
-    exit
-else
-    KEEP_HOSTS=$(realpath $KEEP_HOSTS)
+# Verify that the file with hosts to keep does exist
+if [[ -n $KEEP_HOSTS ]]; then
+    if [[ ! -f $KEEP_HOSTS ]]; then
+        echo "[!!] Error: Unable to load file '$KEEP_HOSTS'. File does not exist"
+        exit
+    else
+        KEEP_HOSTS=$(realpath $KEEP_HOSTS)
+    fi
 fi
 
 # Set default output path if one was not provided
