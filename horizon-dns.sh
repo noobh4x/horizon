@@ -386,8 +386,34 @@ cat massdns.out \
     > hosts-online.txt
 COUNT_MASSDNS=`cat hosts-online.txt | wc -l`
 
+echo '[*] Checking redirections'
+rm -f hosts-redirect.txt
+for host in `cat hosts-online.txt`; do
+    echo -en "Checking: $host                                                \r"
+    matched=$(curl -sI $host \
+        | grep ^Location) 2>/dev/null
+
+    if [[ -n $matched ]]; then
+        echo "$host => $matched" >> hosts-redirects.txt
+    fi
+done
+
+if [[ -f hosts-redirect.txt ]]; then
+    echo '[*] Extracting all non-redirect hosts'
+    cat hosts-redirect.txt | awk '{print $1}' > redirected.tmp
+    grep -xvf redirected.tmp hosts-online.txt > hosts-attention.txt
+    echo $DOMAIN >> hosts-attention.txt
+    cat hosts-attention.txt | sort -u > hosts-attention.tmp
+    mv hosts-attention.{tmp,txt}
+    rm -f redirected.tmp
+fi
+
 echo "[*] Testing for possible subdomain takeover"
-takeover -l hosts-online.txt --set-output hosts-takeover.txt
+if [[ ! -f hosts-attention.txt ]]; then
+    takeover -l hosts-online.txt --set-output hosts-takeover.txt
+else
+    takeover -l hosts-online.txt --set-output hosts-attention.txt
+fi
 
 TIME_END=`date +"%Y-%m-%d %H:%M:%S"`
 TIMER_END=`date +"%s"`
