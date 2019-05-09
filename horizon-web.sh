@@ -182,13 +182,17 @@ echo
 echo "[*] Checking if the website is behind a WAF"
 wafw00f --findall $DOMAIN \
     | grep behind \
-    | sed -E 's/The site .+ behind a?\s?//;s/WAF\.$//;s/^/  /'
+    | sed -E 's/The site .+ behind a?\s?//;s/WAF\.$//' \
+    > wafw00f.out
+cat wafw00f.out | sed 's/^/  /'
 
 echo
 echo "[*] Checking technologies via wappalyzer"
 wappalyzer $DOMAIN \
-    | jq '.applications[].name' \
-    | sed 's/"//g;s/^/  /'
+    | jq '.applications[].name' 2>/dev/null \
+    | sed 's/"//g' \
+    > wappalyzer.out
+cat wappalyzer.out | sed 's/^/  /'
 
 echo
 echo "[*] Checking for existence of robots.txt"
