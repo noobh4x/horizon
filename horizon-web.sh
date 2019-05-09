@@ -57,8 +57,7 @@ done
 
 if [[ -n $DISPLAY_HELP ]];
 then
-    echo "  Usage: $0 [options] -d <url>
-
+    echo "
   Required:
     -u <url>            URL
 
