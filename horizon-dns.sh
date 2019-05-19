@@ -390,11 +390,13 @@ echo '[*] Checking redirections'
 rm -f hosts-redirect.txt
 for host in `cat hosts-online.txt`; do
     echo -en "Checking: $host                                                \r"
-    matched=$(curl -sI $host \
-        | grep ^Location) 2>/dev/null
+    location=$(curl -sI $host \
+        | grep ^Location \
+        | sed 's/Location: //') \
+        2>/dev/null
 
-    if [[ -n $matched ]]; then
-        echo "$host => $matched" >> hosts-redirects.txt
+    if [[ -n $location ]]; then
+        echo "$host => $location" >> hosts-redirects.txt
     fi
 done
 
