@@ -17,7 +17,7 @@ echo '
 ################################################################################
 
 BASE_PATH=`pwd`
-SELF_PATH=$(dirname "$(readlink -f "$0")")
+SELF_PATH=$BASE_PATH
 ERROR=0
 
 # Checking dependencies
@@ -68,9 +68,10 @@ else
 fi
 
 # Handling arguments
-while getopts ":d:i:k:o:r:w:h" opt; do
+while getopts ":d:D:i:k:o:r:w:h" opt; do
     case $opt in
         d) DOMAIN=$OPTARG ;;
+        D) INPUT_FILE=$OPTARG ;;
         h) SHOW_HELP=1 ;;
         i) IGNORE_HOSTS=$OPTARG ;;
         k) KEEP_HOSTS=$OPTARG ;;
@@ -85,6 +86,8 @@ then
     echo "
   Required:
     -d <domain>     Domain
+
+    -D <domains>    List of domains to scan
 
   Optional:
     -h              This help menu
@@ -105,8 +108,8 @@ then
 fi
 
 # Domain is a required. Throw an error if one was not provided
-if [[ -z $DOMAIN ]]; then
-    echo '[!!] Error: Domain cannot be empty. Use -h for more info'
+if [[ -z $DOMAIN && -z $INPUT_FILE ]]; then
+    echo '[!!] Error: Domain or domain list cannot be empty. Use -h for more info'
     exit
 fi
 
@@ -171,6 +174,16 @@ if [[ ! -f $WORDLIST ]]; then
     exit
 fi
 
+echo $INPUT_FILE
+# Throw an error if the inputfile does not exist
+if [[ ! -f $INPUT_FILE ]]; then
+    INPUT_FILE=$SELF_PATH"/"$INPUT_FILE
+    if [[ ! -f $INPUT_FILE ]]; then
+      echo "[!!] Error: Unable to load input file. File does not exist. Aborting..."
+      exit
+    fi
+fi
+
 # Set default resolvers list if one was not provided
 if [[ -z $RESOLVERS ]]; then
     RESOLVERS=$SELF_PATH"/lists/dns-resolvers.txt"
@@ -185,6 +198,261 @@ if [[ ! -f $RESOLVERS ]]; then
 fi
 
 ################################################################################
+# Function definitions
+################################################################################
+
+
+function runProcess(){
+  echo "Running Process with domain "$1
+  mkdir $1
+  cd $1
+
+  WILDCARD=$(dig @1.1.1.1 A,CNAME {foohica7291673,b0r4m4dr4m41928,1sh0uldn0t3x1st}.$1 +short | wc -l)
+  if [[ "$WILDCARD" -gt "1" ]];
+  then
+      echo "[*] Possible wildcard detected. Skipping brute forcing"
+  else
+      echo "[*] No wildcard detected"
+  fi
+
+  echo "[*] Running amass"
+  if [[ "$WILDCARD" -gt "1" ]];
+  then
+      amass -src -ip -active -noalts -norecursive -exclude crtsh,certspotter,bufferover,threatcrowd,virustotal -d $1
+  else
+      amass -src -ip -active -brute --min-for-recursive 3 -exclude crtsh,certspotter,bufferover,threatcrowd,virustotal -w $WORDLIST -d $1
+  fi
+
+  COUNT_AMASS=0
+  if [[ -f "amass_output/amass.txt" ]]; then
+      cat amass_output/amass.txt \
+          | cut -d']' -f2 \
+          | awk '{print $1}' \
+          | sort -u \
+          > hosts-amass.tmp
+      COUNT_AMASS=`cat hosts-amass.tmp | wc -l`
+  fi
+
+  COUNT_KNOCKPY=0
+  if [[ "$WILDCARD" -lt "2" ]]; then
+      echo
+      echo "[*] Running knockpy"
+      KNOCKFILES=`echo $1 | tr '.' '_'`"*.json"
+      rm -f $KNOCKFILES
+      knockpy -j -w $WORDLIST $1
+      KNOCKFILE=`find $BASE_PATH -name $KNOCKFILES -type f`
+      cat $KNOCKFILE \
+          | jq '.found.subdomain[]' 2>/dev/null \
+          | sed 's/"//g' \
+          | sed 's/*\.//' \
+          | sort -u \
+          > hosts-knockpy.tmp
+      COUNT_KNOCKPY=`cat hosts-knockpy.tmp | wc -l`
+      rm -f $KNOCKFILE
+  fi
+
+  COUNT_CLOUDFLARE=0
+  if [[ -n $CF_API_KEY && -n $CF_API_EMAIL && -n $CF_USER_ID ]]; then
+      echo
+      echo "[*] Attempting to get DNS data via Cloud Flare"
+      # Create new zone
+      curl -s -X POST "https://api.cloudflare.com/client/v4/zones" \
+          -H "X-Auth-Email: $CF_API_EMAIL" \
+          -H "X-Auth-Key: $CF_API_KEY" \
+          -H "Content-Type: application/json" \
+          --data '{
+              "account": {
+                  "id": "'$CF_USER_ID'"
+              },
+              "name": "'$1'",
+              "jump_start":true
+          }' \
+          > cloudflare-zone.tmp
+      CF_ZONE_ID=`cat cloudflare-zone.tmp | jq '.result.id' | sed 's/"//g'`
+
+      if [[ "$CF_ZONE_ID" == "null" ]];
+      then
+          CF_ERROR_MESSAGE=`cat cloudflare-zone.tmp | jq '.errors[].message' | sed 's/"//g'`
+          echo "  [-] Error: $CF_ERROR_MESSAGE"
+      else
+          echo "  [+] Zone successully added"
+
+          # Fetch dns records
+          echo "  [*] Fetching DNS records"
+          curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+              -H "X-Auth-Email: $CF_API_EMAIL" \
+              -H "X-Auth-Key: $CF_API_KEY" \
+              -H "Content-Type: application/json" \
+              > cloudflare-dns.tmp
+          cat cloudflare-dns.tmp \
+              | jq '.' \
+              | grep '"name":' \
+              | awk '{print $2}' \
+              | sed 's/"//g' \
+              | sed 's/,$//' \
+              | sort -u \
+              > hosts-cloudflare.tmp
+          COUNT_CLOUDFLARE=`cat hosts-cloudflare.tmp | wc -l`
+
+          # Delete zone and temporary file file
+          echo "  [*] Cleaning up"
+          curl -s -X DELETE "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID" \
+              -H "X-Auth-Email: $CF_API_EMAIL" \
+              -H "X-Auth-Key: $CF_API_KEY" \
+              -H "Content-Type: application/json" > /dev/null
+      fi
+  fi
+
+  echo
+  echo "[*] Searching Cert Spotter"
+  curl -s https://certspotter.com/api/v0/certs?domain=$1 \
+      | jq '.[].dns_names[]' 2>/dev/null \
+      | sed 's/\"//g' \
+      | sed 's/\*\.//g' \
+      | sort -u \
+      > hosts-certspotter.tmp
+  COUNT_CERTSPOTTER=`cat hosts-certspotter.tmp | wc -l`
+
+  echo "[*] Searching crt.sh"
+  curl -s "https://crt.sh/?q=%.$1&output=json" \
+      | jq '.[].name_value' 2>/dev/null \
+      | sed 's/\"//g' \
+      | sed 's/\*\.//g' \
+      | sort -u \
+      > hosts-crtsh.tmp
+  COUNT_CRTSH=`cat hosts-crtsh.tmp | wc -l`
+
+  echo '[*] Searching Buffer Over'
+  curl -s "https://dns.bufferover.run/dns?q=.$1" \
+      | jq '.FDNS_A[]' 2>/dev/null \
+      | sed 's/"//g' \
+      | cut -d',' -f2 \
+      | sort -u \
+      > hosts-bufferover.tmp
+  COUNT_BUFFEROVER=`cat hosts-bufferover.tmp | wc -l`
+
+  echo '[*] Searching Threat Crowd'
+  curl -s "https://www.threatcrowd.org/searchApi/v2/domain/report/?domain=$1" \
+      | jq '.subdomains[]' 2>/dev/null \
+      | sed 's/"//g' \
+      | sort -u \
+      > hosts-threatcrowd.tmp
+  COUNT_THREATCROWD=`cat hosts-threatcrowd.tmp | wc -l`
+
+  if [[ -n $VT_API_KEY ]];
+  then
+      echo "[*] Searching Virus Total"
+      curl -s "https://www.virustotal.com/vtapi/v2/domain/report?apikey=$VT_API_KEY&domain=$1" \
+          | jq '.subdomains[]' 2>/dev/null \
+          | sed 's/"//g' \
+          | sed 's/*\.//' \
+          | sort -u \
+          > hosts-vt.tmp
+      COUNT_VT=`cat hosts-vt.tmp | wc -l`
+  fi
+
+  echo "[*] Merging all results and removing duplicates"
+  cat hosts-*.tmp \
+      | sed '/^*./d' \
+      | sort -u \
+      > hosts-merged.txt
+  COUNT_UNIQUE=`cat hosts-merged.txt | wc -l`
+
+  if [[ -f hosts-all.txt ]]; then
+      grep -Fxvf hosts-all.txt hosts-merged.txt > hosts-new.txt
+      COUNT_NEW=`cat hosts-new.txt | wc -l`
+      cat hosts-all.txt hosts-merged.txt | sort -u > hosts-all.tmp
+      mv hosts-all.{tmp,txt}
+      echo "[*] Found $COUNT_NEW new hosts"
+      if [[ "$COUNT_NEW" -gt "0" ]]; then
+          cat hosts-new.txt
+      else
+          rm -f hosts-new.txt
+      fi
+  else
+      cp hosts-{merged,all}.txt
+      COUNT_NEW=`cat hosts-all.txt | wc -l`
+  fi
+
+  if [[ -n $IGNORE_HOSTS ]]; then
+      echo '[*] Removing out of scope hosts'
+      grep -vf $IGNORE_HOSTS hosts-merged.txt > hosts-merged.tmp
+      mv hosts-merged.{tmp,txt}
+  fi
+
+  if [[ -n $KEEP_HOSTS ]]; then
+      echo '[*] Extracting hosts to keep'
+      grep -f $KEEP_HOSTS hosts-merged.txt > hosts-merged.tmp
+      mv hosts-merged.{tmp,txt}
+  fi
+
+  echo
+  echo "[*] Running massdns"
+  massdns -r $RESOLVERS -q -t A -o S -w massdns.out hosts-merged.txt
+  cat massdns.out \
+      | awk '{print $1}' \
+      | sed 's/\.$//' \
+      | sort -u \
+      > hosts-online.txt
+  COUNT_MASSDNS=`cat hosts-online.txt | wc -l`
+
+  echo '[*] Checking redirections'
+  rm -f hosts-redirect.txt
+  for host in `cat hosts-online.txt`; do
+      echo -en "Checking: $host                                                \r"
+      matched=$(curl -sI $host \
+          | grep ^Location) 2>/dev/null
+
+      if [[ -n $matched ]]; then
+          echo "$host => $matched" >> hosts-redirects.txt
+      fi
+  done
+
+  if [[ -f hosts-redirect.txt ]]; then
+      echo '[*] Extracting all non-redirect hosts'
+      cat hosts-redirect.txt | awk '{print $1}' > redirected.tmp
+      grep -xvf redirected.tmp hosts-online.txt > hosts-attention.txt
+      echo $1 >> hosts-attention.txt
+      cat hosts-attention.txt | sort -u > hosts-attention.tmp
+      mv hosts-attention.{tmp,txt}
+      rm -f redirected.tmp
+  fi
+
+  echo "[*] Testing for possible subdomain takeover"
+  if [[ ! -f hosts-attention.txt ]]; then
+      takeover -l hosts-online.txt --set-output hosts-takeover.txt
+  else
+      takeover -l hosts-online.txt --set-output hosts-attention.txt
+  fi
+
+  TIME_END=`date +"%Y-%m-%d %H:%M:%S"`
+  TIMER_END=`date +"%s"`
+  TIMER_ELAPSED=$(($TIMER_END - $TIMER_START))
+
+  echo
+  echo "[*] Process ended @ $TIME_END"
+  echo "  Duration: $TIMER_ELAPSED seconds"
+  echo
+  echo "[*] Results for $1"
+  echo "  Online       : $COUNT_MASSDNS"
+  echo "  Unique hosts : $COUNT_UNIQUE"
+  echo "  New hosts    : $COUNT_NEW"
+  echo
+  echo "  Amass        : $COUNT_AMASS"
+  echo "  Buffer Over  : $COUNT_BUFFEROVER"
+  echo "  Cert Spotter : $COUNT_CERTSPOTTER"
+  echo "  CloudFlare   : $COUNT_CLOUDFLARE"
+  echo "  Crt.sh       : $COUNT_CRTSH"
+  echo "  KnockPY      : $COUNT_KNOCKPY"
+  echo "  Threat Crowd : $COUNT_THREATCROWD"
+  echo "  Virus Total  : $COUNT_VT"
+
+  # Cleaning up temporary files
+  rm -Rf amass_output/ hosts-*.tmp cloudflare-*.tmp *.out
+  cd ..
+}
+
+################################################################################
 # Preparations complete - process begins
 ################################################################################
 
@@ -195,249 +463,11 @@ echo "  Domain     : $DOMAIN"
 echo "  Output dir : $SAVE_PATH"
 echo "  Resolvers  : $RESOLVERS"
 echo "  Wordlist   : $WORDLIST"
+echo "  Input file : $INPUT_FILE"
 echo
 
-WILDCARD=$(dig @1.1.1.1 A,CNAME {foohica7291673,b0r4m4dr4m41928,1sh0uldn0t3x1st}.$DOMAIN +short | wc -l)
-if [[ "$WILDCARD" -gt "1" ]];
-then
-    echo "[*] Possible wildcard detected. Skipping brute forcing"
-else
-    echo "[*] No wildcard detected"
-fi
-
-echo "[*] Running amass"
-if [[ "$WILDCARD" -gt "1" ]];
-then
-    amass -src -ip -active -noalts -norecursive -exclude crtsh,certspotter,bufferover,threatcrowd,virustotal -d $DOMAIN
-else
-    amass -src -ip -active -brute --min-for-recursive 3 -exclude crtsh,certspotter,bufferover,threatcrowd,virustotal -w $WORDLIST -d $DOMAIN
-fi
-
-COUNT_AMASS=0
-if [[ -f "amass_output/amass.txt" ]]; then
-    cat amass_output/amass.txt \
-        | cut -d']' -f2 \
-        | awk '{print $1}' \
-        | sort -u \
-        > hosts-amass.tmp
-    COUNT_AMASS=`cat hosts-amass.tmp | wc -l`
-fi
-
-COUNT_KNOCKPY=0
-if [[ "$WILDCARD" -lt "2" ]]; then
-    echo
-    echo "[*] Running knockpy"
-    KNOCKFILES=`echo $DOMAIN | tr '.' '_'`"*.json"
-    rm -f $KNOCKFILES
-    knockpy -j -w $WORDLIST $DOMAIN
-    KNOCKFILE=`find $BASE_PATH -name $KNOCKFILES -type f`
-    cat $KNOCKFILE \
-        | jq '.found.subdomain[]' 2>/dev/null \
-        | sed 's/"//g' \
-        | sed 's/*\.//' \
-        | sort -u \
-        > hosts-knockpy.tmp
-    COUNT_KNOCKPY=`cat hosts-knockpy.tmp | wc -l`
-    rm -f $KNOCKFILE
-fi
-
-COUNT_CLOUDFLARE=0
-if [[ -n $CF_API_KEY && -n $CF_API_EMAIL && -n $CF_USER_ID ]]; then
-    echo
-    echo "[*] Attempting to get DNS data via Cloud Flare"
-    # Create new zone
-    curl -s -X POST "https://api.cloudflare.com/client/v4/zones" \
-        -H "X-Auth-Email: $CF_API_EMAIL" \
-        -H "X-Auth-Key: $CF_API_KEY" \
-        -H "Content-Type: application/json" \
-        --data '{
-            "account": {
-                "id": "'$CF_USER_ID'"
-            },
-            "name": "'$DOMAIN'",
-            "jump_start":true
-        }' \
-        > cloudflare-zone.tmp
-    CF_ZONE_ID=`cat cloudflare-zone.tmp | jq '.result.id' | sed 's/"//g'`
-
-    if [[ "$CF_ZONE_ID" == "null" ]];
-    then
-        CF_ERROR_MESSAGE=`cat cloudflare-zone.tmp | jq '.errors[].message' | sed 's/"//g'`
-        echo "  [-] Error: $CF_ERROR_MESSAGE"
-    else
-        echo "  [+] Zone successully added"
-
-        # Fetch dns records
-        echo "  [*] Fetching DNS records"
-        curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
-            -H "X-Auth-Email: $CF_API_EMAIL" \
-            -H "X-Auth-Key: $CF_API_KEY" \
-            -H "Content-Type: application/json" \
-            > cloudflare-dns.tmp
-        cat cloudflare-dns.tmp \
-            | jq '.' \
-            | grep '"name":' \
-            | awk '{print $2}' \
-            | sed 's/"//g' \
-            | sed 's/,$//' \
-            | sort -u \
-            > hosts-cloudflare.tmp
-        COUNT_CLOUDFLARE=`cat hosts-cloudflare.tmp | wc -l`
-
-        # Delete zone and temporary file file
-        echo "  [*] Cleaning up"
-        curl -s -X DELETE "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID" \
-            -H "X-Auth-Email: $CF_API_EMAIL" \
-            -H "X-Auth-Key: $CF_API_KEY" \
-            -H "Content-Type: application/json" > /dev/null
-    fi
-fi
-
-echo
-echo "[*] Searching Cert Spotter"
-curl -s https://certspotter.com/api/v0/certs?domain=$DOMAIN \
-    | jq '.[].dns_names[]' 2>/dev/null \
-    | sed 's/\"//g' \
-    | sed 's/\*\.//g' \
-    | sort -u \
-    > hosts-certspotter.tmp
-COUNT_CERTSPOTTER=`cat hosts-certspotter.tmp | wc -l`
-
-echo "[*] Searching crt.sh"
-curl -s "https://crt.sh/?q=%.$DOMAIN&output=json" \
-    | jq '.[].name_value' 2>/dev/null \
-    | sed 's/\"//g' \
-    | sed 's/\*\.//g' \
-    | sort -u \
-    > hosts-crtsh.tmp
-COUNT_CRTSH=`cat hosts-crtsh.tmp | wc -l`
-
-echo '[*] Searching Buffer Over'
-curl -s "https://dns.bufferover.run/dns?q=.$DOMAIN" \
-    | jq '.FDNS_A[]' 2>/dev/null \
-    | sed 's/"//g' \
-    | cut -d',' -f2 \
-    | sort -u \
-    > hosts-bufferover.tmp
-COUNT_BUFFEROVER=`cat hosts-bufferover.tmp | wc -l`
-
-echo '[*] Searching Threat Crowd'
-curl -s "https://www.threatcrowd.org/searchApi/v2/domain/report/?domain=$DOMAIN" \
-    | jq '.subdomains[]' 2>/dev/null \
-    | sed 's/"//g' \
-    | sort -u \
-    > hosts-threatcrowd.tmp
-COUNT_THREATCROWD=`cat hosts-threatcrowd.tmp | wc -l`
-
-if [[ -n $VT_API_KEY ]];
-then
-    echo "[*] Searching Virus Total"
-    curl -s "https://www.virustotal.com/vtapi/v2/domain/report?apikey=$VT_API_KEY&domain=$DOMAIN" \
-        | jq '.subdomains[]' 2>/dev/null \
-        | sed 's/"//g' \
-        | sed 's/*\.//' \
-        | sort -u \
-        > hosts-vt.tmp
-    COUNT_VT=`cat hosts-vt.tmp | wc -l`
-fi
-
-echo "[*] Merging all results and removing duplicates"
-cat hosts-*.tmp \
-    | sed '/^*./d' \
-    | sort -u \
-    > hosts-merged.txt
-COUNT_UNIQUE=`cat hosts-merged.txt | wc -l`
-
-if [[ -f hosts-all.txt ]]; then
-    grep -Fxvf hosts-all.txt hosts-merged.txt > hosts-new.txt
-    COUNT_NEW=`cat hosts-new.txt | wc -l`
-    cat hosts-all.txt hosts-merged.txt | sort -u > hosts-all.tmp
-    mv hosts-all.{tmp,txt}
-    echo "[*] Found $COUNT_NEW new hosts"
-    if [[ "$COUNT_NEW" -gt "0" ]]; then
-        cat hosts-new.txt
-    else
-        rm -f hosts-new.txt
-    fi
-else
-    cp hosts-{merged,all}.txt
-    COUNT_NEW=`cat hosts-all.txt | wc -l`
-fi
-
-if [[ -n $IGNORE_HOSTS ]]; then
-    echo '[*] Removing out of scope hosts'
-    grep -vf $IGNORE_HOSTS hosts-merged.txt > hosts-merged.tmp
-    mv hosts-merged.{tmp,txt}
-fi
-
-if [[ -n $KEEP_HOSTS ]]; then
-    echo '[*] Extracting hosts to keep'
-    grep -f $KEEP_HOSTS hosts-merged.txt > hosts-merged.tmp
-    mv hosts-merged.{tmp,txt}
-fi
-
-echo
-echo "[*] Running massdns"
-massdns -r $RESOLVERS -q -t A -o S -w massdns.out hosts-merged.txt
-cat massdns.out \
-    | awk '{print $1}' \
-    | sed 's/\.$//' \
-    | sort -u \
-    > hosts-online.txt
-COUNT_MASSDNS=`cat hosts-online.txt | wc -l`
-
-echo '[*] Checking redirections'
-rm -f hosts-redirect.txt
-for host in `cat hosts-online.txt`; do
-    echo -en "Checking: $host                                                \r"
-    location=$(curl -sI $host \
-        | grep ^Location \
-        | sed 's/Location: //') \
-        2>/dev/null
-
-    if [[ -n $location ]]; then
-        echo "$host => $location" >> hosts-redirects.txt
-    fi
-done
-
-if [[ -f hosts-redirect.txt ]]; then
-    echo '[*] Extracting all non-redirect hosts'
-    cat hosts-redirect.txt | awk '{print $1}' > redirected.tmp
-    grep -xvf redirected.tmp hosts-online.txt > hosts-attention.txt
-    echo $DOMAIN >> hosts-attention.txt
-    cat hosts-attention.txt | sort -u > hosts-attention.tmp
-    mv hosts-attention.{tmp,txt}
-    rm -f redirected.tmp
-fi
-
-echo "[*] Testing for possible subdomain takeover"
-if [[ ! -f hosts-attention.txt ]]; then
-    takeover -l hosts-online.txt --set-output hosts-takeover.txt
-else
-    takeover -l hosts-online.txt --set-output hosts-attention.txt
-fi
-
-TIME_END=`date +"%Y-%m-%d %H:%M:%S"`
-TIMER_END=`date +"%s"`
-TIMER_ELAPSED=$(($TIMER_END - $TIMER_START))
-
-echo
-echo "[*] Process ended @ $TIME_END"
-echo "  Duration: $TIMER_ELAPSED seconds"
-echo
-echo "[*] Results for $DOMAIN"
-echo "  Online       : $COUNT_MASSDNS"
-echo "  Unique hosts : $COUNT_UNIQUE"
-echo "  New hosts    : $COUNT_NEW"
-echo
-echo "  Amass        : $COUNT_AMASS"
-echo "  Buffer Over  : $COUNT_BUFFEROVER"
-echo "  Cert Spotter : $COUNT_CERTSPOTTER"
-echo "  CloudFlare   : $COUNT_CLOUDFLARE"
-echo "  Crt.sh       : $COUNT_CRTSH"
-echo "  KnockPY      : $COUNT_KNOCKPY"
-echo "  Threat Crowd : $COUNT_THREATCROWD"
-echo "  Virus Total  : $COUNT_VT"
-
-# Cleaning up temporary files
-rm -Rf amass_output/ hosts-*.tmp cloudflare-*.tmp *.out
+while read -r line
+do
+   ## take some action on $line
+  runProcess $line
+done < "$INPUT_FILE"
