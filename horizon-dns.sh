@@ -119,7 +119,7 @@ if [[ -n $IGNORE_HOSTS ]]; then
         echo "[!!] Error: Unable to load file '$IGNORE_HOSTS'. File does not exist"
         exit
     else
-        IGNORE_HOSTS=$(realpath $IGNORE_HOSTS)
+        IGNORE_HOSTS=$(readlink -f $IGNORE_HOSTS)
     fi
 fi
 
@@ -129,7 +129,7 @@ if [[ -n $KEEP_HOSTS ]]; then
         echo "[!!] Error: Unable to load file '$KEEP_HOSTS'. File does not exist"
         exit
     else
-        KEEP_HOSTS=$(realpath $KEEP_HOSTS)
+        KEEP_HOSTS=$(readlink -f $KEEP_HOSTS)
     fi
 fi
 
@@ -158,14 +158,14 @@ else
             ;;
     esac
 fi
-SAVE_PATH=`realpath $SAVE_PATH`
+SAVE_PATH=`readlink -f $SAVE_PATH`
 cd $SAVE_PATH
 
 # Set default word list if one was not provided
 if [[ -z $WORDLIST ]]; then
     WORDLIST=$SELF_PATH"/lists/dns-wordlist.txt"
 else
-    WORDLIST=$(realpath $WORDLIST)
+    WORDLIST=$(readlink -f $WORDLIST)
 fi
 
 # Throw an error if the file does not exist
@@ -188,7 +188,7 @@ fi
 if [[ -z $RESOLVERS ]]; then
     RESOLVERS=$SELF_PATH"/lists/dns-resolvers.txt"
 else
-    RESOLVERS=$(realpath $RESOLVERS)
+    RESOLVERS=$(readlink -f $RESOLVERS)
 fi
 
 # Throw an error if the file does not exist
